@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { userService } from '../services/userService';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { UpdateUserRequest } from 'flixsync-shared-library';
+import { UpdateUserRequest } from '@flixsync/flixsync-shared-library';
 
 export class UserController {
   public async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
