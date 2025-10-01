@@ -140,8 +140,7 @@ jobs:
             --name flixsync-plan \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --location ${{ env.AZURE_LOCATION }} \
-            --sku Y1 \
-            --is-linux
+            --sku Y1
         else
           echo "Function app plan flixsync-plan already exists"
         fi
