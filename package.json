@@ -46,6 +46,9 @@
     "azure",
     "cosmosdb"
   ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "author": "FlixSync Team",
   "license": "MIT"
 }
