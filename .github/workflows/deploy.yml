@@ -149,22 +149,20 @@ jobs:
           echo "Function app ${{ env.AZURE_FUNCTIONAPP_NAME }} already exists"
         fi
 
-        # Check if VNet integration exists
-        VNET_INTEGRATION=$(az functionapp vnet-integration list \
+        # Get Function App outbound IPs and add to Cosmos DB firewall
+        echo "Securing Cosmos DB with Function App IP whitelist..."
+        FUNCTION_IPS=$(az functionapp show \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "[0].id" -o tsv 2>/dev/null || echo "")
+          --query "possibleOutboundIpAddresses" -o tsv | tr ',' '\n')
 
-        if [ -z "$VNET_INTEGRATION" ]; then
-          echo "Adding VNet integration to function app..."
-          az functionapp vnet-integration add \
-            --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+        # Add each IP to Cosmos DB firewall
+        for IP in $FUNCTION_IPS; do
+          az cosmosdb update \
+            --name flixsync-cosmos \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --vnet ${{ env.VNET_NAME }} \
-            --subnet ${{ env.SUBNET_NAME }}
-        else
-          echo "VNet integration already exists for function app"
-        fi
+            --ip-range-filter $IP || true
+        done
 
         # Configure app settings (always update to ensure latest values)
         echo "Configuring app settings..."
@@ -178,8 +176,7 @@ jobs:
             COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" \
             COSMOS_KEY="${{ secrets.COSMOS_KEY }}" \
             COSMOS_DATABASE_NAME="${{ env.COSMOS_DATABASE_NAME }}" \
-            COSMOS_CONTAINER_NAME="${{ env.COSMOS_CONTAINER_NAME }}" \
-            WEBSITE_VNET_ROUTE_ALL=1
+            COSMOS_CONTAINER_NAME="${{ env.COSMOS_CONTAINER_NAME }}"
 
     - name: Prepare deployment package
       run: |
