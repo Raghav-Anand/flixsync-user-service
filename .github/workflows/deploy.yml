@@ -85,6 +85,11 @@ jobs:
 
     - name: Create Azure Resources
       run: |
+        # Create resource group if it doesn't exist
+        az group create \
+          --name ${{ env.AZURE_RESOURCE_GROUP }} \
+          --location ${{ env.AZURE_LOCATION }} || true
+
         # Create storage account (app-specific)
         az storage account create \
           --name ${{ env.AZURE_STORAGE_ACCOUNT }} \
@@ -98,20 +103,22 @@ jobs:
           --name ${{ env.SUBNET_NAME }} \
           --vnet-name ${{ env.VNET_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query id -o tsv)
+          --query id -o tsv 2>/dev/null || echo "")
 
-        # Add VNet rule to storage account
-        az storage account network-rule add \
-          --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --subnet $SUBNET_ID || true
+        # Add VNet rule to storage account if subnet exists
+        if [ ! -z "$SUBNET_ID" ]; then
+          az storage account network-rule add \
+            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --subnet $SUBNET_ID || true
+        fi
 
-        # Create App Service Plan (required for VNet integration)
-        az appservice plan create \
+        # Create Consumption Plan for Azure Functions
+        az functionapp plan create \
           --name flixsync-plan \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --location ${{ env.AZURE_LOCATION }} \
-          --sku EP1 \
+          --sku Y1 \
           --is-linux || true
 
         # Create Function App
