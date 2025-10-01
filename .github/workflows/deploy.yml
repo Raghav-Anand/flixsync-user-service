@@ -133,25 +133,13 @@ jobs:
           fi
         fi
 
-        # Create Consumption Plan if it doesn't exist
-        if ! az functionapp plan show --name flixsync-plan --resource-group ${{ env.AZURE_RESOURCE_GROUP }} &>/dev/null; then
-          echo "Creating function app plan flixsync-plan..."
-          az functionapp plan create \
-            --name flixsync-plan \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --location ${{ env.AZURE_LOCATION }} \
-            --sku Dynamic
-        else
-          echo "Function app plan flixsync-plan already exists"
-        fi
-
-        # Create Function App if it doesn't exist
+        # Create Function App if it doesn't exist (Consumption plan auto-created)
         if ! az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} &>/dev/null; then
           echo "Creating function app ${{ env.AZURE_FUNCTIONAPP_NAME }}..."
           az functionapp create \
             --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --plan flixsync-plan \
+            --consumption-plan-location ${{ env.AZURE_LOCATION }} \
             --runtime node \
             --runtime-version 18 \
             --functions-version 4 \
