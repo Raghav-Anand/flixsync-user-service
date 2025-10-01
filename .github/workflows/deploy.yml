@@ -15,7 +15,7 @@ env:
   VNET_NAME: flixsync-vnet
   SUBNET_NAME: flixsync-functions-subnet
   NSG_NAME: flixsync-nsg
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
 
 jobs:
   build-and-test:
@@ -141,7 +141,7 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --consumption-plan-location ${{ env.AZURE_LOCATION }} \
             --runtime node \
-            --runtime-version 18 \
+            --runtime-version 22 \
             --functions-version 4 \
             --storage-account ${{ env.AZURE_STORAGE_ACCOUNT }} \
             --os-type Linux
