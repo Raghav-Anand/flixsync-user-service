@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserService } from '../../src/services/userService';
 import { UserModel } from '../../src/models/User';
 import { authService } from '../../src/services/authService';
-import { dbConnection } from '../../src/config/database';
-import { User, CreateUserRequest, UpdateUserRequest, LoginRequest } from 'flixsync-shared-library';
+import * as database from '../../src/config/database';
+import { User, CreateUserRequest, UpdateUserRequest, LoginRequest } from '@flixsync/flixsync-shared-library';
 
 vi.mock('../../src/models/User');
 vi.mock('../../src/services/authService');
@@ -33,7 +33,12 @@ describe('UserService', () => {
       })
     };
 
-    (dbConnection.getContainer as any).mockReturnValue(mockContainer);
+    vi.spyOn(database, 'getDbConnection').mockReturnValue({
+      getContainer: vi.fn().mockReturnValue(mockContainer),
+      getDatabase: vi.fn(),
+      initialize: vi.fn()
+    } as any);
+
     mockAuthService = authService as any;
     mockUserModel = UserModel as any;
 

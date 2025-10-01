@@ -30,11 +30,12 @@ vi.mock('@azure/cosmos', () => ({
 vi.mock('../src/config', () => ({
   config: {
     port: 3001,
-    database: {
+    nodeEnv: 'test',
+    cosmos: {
       endpoint: 'https://test-cosmos.documents.azure.com:443/',
       key: 'test-key',
-      databaseId: 'test-flixsync',
-      containerId: 'test-users'
+      databaseName: 'test-flixsync',
+      containerName: 'test-users'
     },
     jwt: {
       secret: 'test-jwt-secret-key-for-testing-purposes-only',

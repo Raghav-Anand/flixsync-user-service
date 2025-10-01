@@ -1,7 +1,7 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { config } from '../config';
-import { User, AuthResponse } from 'flixsync-shared-library';
+import { User, AuthResponse } from '@flixsync/flixsync-shared-library';
 
 export class AuthService {
   public async hashPassword(password: string): Promise<string> {

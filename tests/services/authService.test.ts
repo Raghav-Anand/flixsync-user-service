@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuthService } from '../../src/services/authService';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { User } from 'flixsync-shared-library';
+import { User } from '@flixsync/flixsync-shared-library';
 
 vi.mock('jsonwebtoken');
 vi.mock('bcryptjs');

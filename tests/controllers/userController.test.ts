@@ -1,16 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { UserController } from '../../src/controllers/userController';
 import { userService } from '../../src/services/userService';
-import { AuthenticatedRequest } from '../../src/middleware/auth';
-import { UpdateUserRequest, User } from 'flixsync-shared-library';
+import { UpdateUserRequest, User } from '@flixsync/flixsync-shared-library';
+import { AuthenticatedUser } from '../../src/types/fastify';
+
+interface AuthenticatedRequest extends FastifyRequest {
+  user: AuthenticatedUser;
+}
 
 vi.mock('../../src/services/userService');
 
 describe('UserController', () => {
   let userController: UserController;
   let mockRequest: Partial<AuthenticatedRequest>;
-  let mockResponse: Partial<Response>;
+  let mockReply: Partial<FastifyReply>;
   let mockUserService: any;
 
   beforeEach(() => {
@@ -27,9 +31,9 @@ describe('UserController', () => {
       params: {}
     };
 
-    mockResponse = {
+    mockReply = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      send: vi.fn().mockReturnThis()
     };
 
     vi.clearAllMocks();
@@ -71,16 +75,13 @@ describe('UserController', () => {
     it('should return user profile successfully', async () => {
       mockUserService.getUserById.mockResolvedValue(mockUser);
 
-      await userController.getProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
       const { passwordHash, ...expectedUser } = mockUser;
 
       expect(mockUserService.getUserById).toHaveBeenCalledWith('user-123');
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: expectedUser
       });
@@ -89,13 +90,10 @@ describe('UserController', () => {
     it('should return 404 if user not found', async () => {
       mockUserService.getUserById.mockResolvedValue(null);
 
-      await userController.getProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(404);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'User not found'
       });
@@ -104,13 +102,10 @@ describe('UserController', () => {
     it('should handle service errors', async () => {
       mockUserService.getUserById.mockRejectedValue(new Error('Database error'));
 
-      await userController.getProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(500);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Database error'
       });
@@ -162,14 +157,11 @@ describe('UserController', () => {
       mockRequest.body = updateData;
       mockUserService.updateUser.mockResolvedValue(updatedUser);
 
-      await userController.updateProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.updateProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
       expect(mockUserService.updateUser).toHaveBeenCalledWith('user-123', updateData);
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: updatedUser
       });
@@ -179,13 +171,10 @@ describe('UserController', () => {
       mockRequest.body = updateData;
       mockUserService.updateUser.mockRejectedValue(new Error('Update failed'));
 
-      await userController.updateProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.updateProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Update failed'
       });
@@ -196,14 +185,11 @@ describe('UserController', () => {
     it('should delete user profile successfully', async () => {
       mockUserService.deleteUser.mockResolvedValue();
 
-      await userController.deleteProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.deleteProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
       expect(mockUserService.deleteUser).toHaveBeenCalledWith('user-123');
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         message: 'User account deleted successfully'
       });
@@ -212,13 +198,10 @@ describe('UserController', () => {
     it('should handle delete errors', async () => {
       mockUserService.deleteUser.mockRejectedValue(new Error('Delete failed'));
 
-      await userController.deleteProfile(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.deleteProfile(mockRequest as AuthenticatedRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Delete failed'
       });
@@ -260,16 +243,13 @@ describe('UserController', () => {
       mockRequest.params = { userId: 'target-user-456' };
       mockUserService.getUserById.mockResolvedValue(mockUser);
 
-      await userController.getUserById(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getUserById(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       const { passwordHash, email, ...expectedUser } = mockUser;
 
       expect(mockUserService.getUserById).toHaveBeenCalledWith('target-user-456');
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: expectedUser
       });
@@ -279,13 +259,10 @@ describe('UserController', () => {
       mockRequest.params = { userId: 'non-existent-user' };
       mockUserService.getUserById.mockResolvedValue(null);
 
-      await userController.getUserById(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getUserById(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(404);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'User not found'
       });
@@ -295,13 +272,10 @@ describe('UserController', () => {
       mockRequest.params = { userId: 'target-user-456' };
       mockUserService.getUserById.mockRejectedValue(new Error('Database error'));
 
-      await userController.getUserById(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response
-      );
+      await userController.getUserById(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(500);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Database error'
       });

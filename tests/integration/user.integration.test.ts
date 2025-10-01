@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import request from 'supertest';
+import { FastifyInstance } from 'fastify';
 import { createApp } from '../../src/app';
 import { userService } from '../../src/services/userService';
 import { authService } from '../../src/services/authService';
-import { UpdateUserRequest, User } from 'flixsync-shared-library';
+import { UpdateUserRequest, User } from '@flixsync/flixsync-shared-library';
 
 vi.mock('../../src/services/userService');
 vi.mock('../../src/services/authService');
 
 describe('User Integration Tests', () => {
-  let app: any;
+  let app: FastifyInstance;
   let mockUserService: any;
   let mockAuthService: any;
 
@@ -47,8 +47,9 @@ describe('User Integration Tests', () => {
 
   const validToken = 'valid-jwt-token';
 
-  beforeEach(() => {
-    app = createApp();
+  beforeEach(async () => {
+    app = await createApp();
+    await app.ready();
     mockUserService = userService as any;
     mockAuthService = authService as any;
 
@@ -63,13 +64,18 @@ describe('User Integration Tests', () => {
     it('should get user profile successfully', async () => {
       const { passwordHash, ...expectedUser } = mockUser;
 
-      const response = await request(app)
-        .get('/api/v1/users/profile')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({
         id: 'user-123',
         email: 'test@example.com',
         username: 'testuser',
@@ -82,11 +88,14 @@ describe('User Integration Tests', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/v1/users/profile');
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/profile'
+      });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Access token required');
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('Access token required');
     });
 
     it('should return 401 with invalid token', async () => {
@@ -94,25 +103,95 @@ describe('User Integration Tests', () => {
         throw new Error('Invalid token');
       });
 
-      const response = await request(app)
-        .get('/api/v1/users/profile')
-        .set('Authorization', `Bearer invalid-token`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer invalid-token`
+        }
+      });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Invalid or expired token');
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('Invalid or expired token');
     });
 
     it('should return 404 if user not found', async () => {
       mockUserService.getUserById.mockResolvedValueOnce(mockUser) // For auth middleware
                                    .mockResolvedValueOnce(null);  // For controller
 
-      const response = await request(app)
-        .get('/api/v1/users/profile')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('User not found');
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('User not found');
+    });
+  });
+
+  describe('PUT /api/v1/users/profile', () => {
+    const validUpdateRequest: UpdateUserRequest = {
+      profile: {
+        firstName: 'Jane',
+        lastName: 'Doe',
+        bio: 'Updated bio'
+      }
+    };
+
+    it('should update user profile successfully', async () => {
+      const updatedUser = { ...mockUser, profile: { ...mockUser.profile, ...validUpdateRequest.profile } };
+      mockUserService.updateUser.mockResolvedValue(updatedUser);
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        },
+        payload: validUpdateRequest
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data.profile.firstName).toBe('Jane');
+      expect(mockUserService.updateUser).toHaveBeenCalledWith('user-123', validUpdateRequest);
+    });
+
+    it('should return 401 without authentication', async () => {
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/users/profile',
+        payload: validUpdateRequest
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('Access token required');
+    });
+
+    it('should handle update service errors', async () => {
+      mockUserService.updateUser.mockRejectedValue(new Error('Update failed'));
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        },
+        payload: validUpdateRequest
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('Update failed');
     });
   });
 
@@ -120,34 +199,47 @@ describe('User Integration Tests', () => {
     it('should delete user profile successfully', async () => {
       mockUserService.deleteUser.mockResolvedValue();
 
-      const response = await request(app)
-        .delete('/api/v1/users/profile')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('User account deleted successfully');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('User account deleted successfully');
       expect(mockUserService.deleteUser).toHaveBeenCalledWith('user-123');
     });
 
     it('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .delete('/api/v1/users/profile');
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/profile'
+      });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Access token required');
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('Access token required');
     });
 
     it('should handle delete service errors', async () => {
       mockUserService.deleteUser.mockRejectedValue(new Error('Delete failed'));
 
-      const response = await request(app)
-        .delete('/api/v1/users/profile')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/profile',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Delete failed');
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('Delete failed');
     });
   });
 
@@ -188,13 +280,18 @@ describe('User Integration Tests', () => {
 
       const { passwordHash, email, ...expectedUser } = targetUser;
 
-      const response = await request(app)
-        .get('/api/v1/users/target-user-456')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/target-user-456',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({
         id: 'target-user-456',
         username: 'targetuser',
         profile: expect.objectContaining({
@@ -204,24 +301,32 @@ describe('User Integration Tests', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/v1/users/target-user-456');
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/target-user-456'
+      });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Access token required');
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('Access token required');
     });
 
     it('should return 404 if target user not found', async () => {
       mockUserService.getUserById.mockResolvedValueOnce(mockUser) // For auth middleware
                                    .mockResolvedValueOnce(null);   // For controller
 
-      const response = await request(app)
-        .get('/api/v1/users/non-existent-user')
-        .set('Authorization', `Bearer ${validToken}`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/non-existent-user',
+        headers: {
+          authorization: `Bearer ${validToken}`
+        }
+      });
 
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('User not found');
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('User not found');
     });
   });
 });

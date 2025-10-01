@@ -1,18 +1,18 @@
-import { Router } from 'express';
-import { authRoutes } from './authRoutes';
-import { userRoutes } from './userRoutes';
+import { FastifyInstance } from 'fastify';
+import { setupAuthRoutes } from './authRoutes';
+import { setupUserRoutes } from './userRoutes';
 
-const router = Router();
-
-router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
-
-router.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'User service is healthy',
-    timestamp: new Date().toISOString(),
+export const setupRoutes = async (app: FastifyInstance): Promise<void> => {
+  // Health check route
+  app.get('/api/v1/health', async (request, reply) => {
+    return reply.status(200).send({
+      success: true,
+      message: 'User service is healthy',
+      timestamp: new Date().toISOString(),
+    });
   });
-});
 
-export { router as routes };
+  // Register route modules
+  await app.register(setupAuthRoutes, { prefix: '/api/v1/auth' });
+  await app.register(setupUserRoutes, { prefix: '/api/v1/users' });
+};

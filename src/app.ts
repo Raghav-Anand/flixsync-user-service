@@ -1,27 +1,38 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
+import fastify, { FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import jwt from '@fastify/jwt';
 import { config } from './config';
-import { routes } from './routes';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { setupRoutes } from './routes';
+import { setupErrorHandlers } from './middleware/errorHandler';
 
-export const createApp = (): express.Application => {
-  const app = express();
+export const createApp = async (): Promise<FastifyInstance> => {
+  const app = fastify({
+    logger: {
+      level: config.nodeEnv === 'production' ? 'info' : 'debug',
+    },
+    bodyLimit: 10 * 1024 * 1024, // 10MB
+  });
 
-  app.use(helmet());
-
-  app.use(cors({
+  // Register CORS plugin
+  await app.register(cors, {
     origin: config.cors.allowedOrigins,
     credentials: true,
-  }));
+  });
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Register Helmet plugin for security
+  await app.register(helmet);
 
-  app.use('/api/v1', routes);
+  // Register JWT plugin
+  await app.register(jwt, {
+    secret: config.jwt.secret,
+  });
 
-  app.use(notFoundHandler);
-  app.use(errorHandler);
+  // Setup routes
+  await setupRoutes(app);
+
+  // Setup error handlers
+  setupErrorHandlers(app);
 
   return app;
 };

@@ -1,93 +1,95 @@
-import { Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { userService } from '../services/userService';
-import { AuthenticatedRequest } from '../middleware/auth';
 import { UpdateUserRequest } from '@flixsync/flixsync-shared-library';
+import { AuthenticatedUser } from '../types/fastify';
+
+interface AuthenticatedRequest extends FastifyRequest {
+  user: AuthenticatedUser;
+}
 
 export class UserController {
-  public async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+  public async getProfile(request: AuthenticatedRequest, reply: FastifyReply): Promise<void> {
     try {
-      const userId = req.user!.id;
+      const userId = request.user.id;
       const user = await userService.getUserById(userId);
 
       if (!user) {
-        res.status(404).json({
+        return reply.status(404).send({
           success: false,
           error: 'User not found',
         });
-        return;
       }
 
       const { passwordHash, ...publicUser } = user;
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         data: publicUser,
       });
     } catch (error: any) {
-      res.status(500).json({
+      return reply.status(500).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async updateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+  public async updateProfile(request: AuthenticatedRequest, reply: FastifyReply): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const updateData: UpdateUserRequest = req.body;
+      const userId = request.user.id;
+      const updateData: UpdateUserRequest = request.body as UpdateUserRequest;
 
       const updatedUser = await userService.updateUser(userId, updateData);
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         data: updatedUser,
       });
     } catch (error: any) {
-      res.status(400).json({
+      return reply.status(400).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async deleteProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+  public async deleteProfile(request: AuthenticatedRequest, reply: FastifyReply): Promise<void> {
     try {
-      const userId = req.user!.id;
+      const userId = request.user.id;
       await userService.deleteUser(userId);
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         message: 'User account deleted successfully',
       });
     } catch (error: any) {
-      res.status(400).json({
+      return reply.status(400).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async getUserById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  public async getUserById(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      const { userId } = req.params;
+      const { userId } = request.params as { userId: string };
       const user = await userService.getUserById(userId);
 
       if (!user) {
-        res.status(404).json({
+        return reply.status(404).send({
           success: false,
           error: 'User not found',
         });
-        return;
       }
 
       const { passwordHash, email, ...publicUser } = user;
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         data: publicUser,
       });
     } catch (error: any) {
-      res.status(500).json({
+      return reply.status(500).send({
         success: false,
         error: error.message,
       });

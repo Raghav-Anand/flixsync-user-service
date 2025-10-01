@@ -1,20 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import request from 'supertest';
+import { FastifyInstance } from 'fastify';
 import { createApp } from '../../src/app';
 import { userService } from '../../src/services/userService';
 import { authService } from '../../src/services/authService';
-import { CreateUserRequest, LoginRequest, AuthResponse } from 'flixsync-shared-library';
+import { CreateUserRequest, LoginRequest, AuthResponse } from '@flixsync/flixsync-shared-library';
 
 vi.mock('../../src/services/userService');
 vi.mock('../../src/services/authService');
 
 describe('Auth Integration Tests', () => {
-  let app: any;
+  let app: FastifyInstance;
   let mockUserService: any;
   let mockAuthService: any;
 
-  beforeEach(() => {
-    app = createApp();
+  beforeEach(async () => {
+    app = await createApp();
+    await app.ready();
     mockUserService = userService as any;
     mockAuthService = authService as any;
     vi.clearAllMocks();
@@ -61,13 +62,16 @@ describe('Auth Integration Tests', () => {
     it('should register user successfully', async () => {
       mockUserService.createUser.mockResolvedValue(mockAuthResponse);
 
-      const response = await request(app)
-        .post('/api/v1/auth/register')
-        .send(validCreateUserRequest);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: validCreateUserRequest
+      });
 
-      expect(response.status).toBe(201);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({
         user: expect.objectContaining({
           id: 'user-123',
           email: 'test@example.com',
@@ -82,13 +86,16 @@ describe('Auth Integration Tests', () => {
     it('should return 400 if user already exists', async () => {
       mockUserService.createUser.mockRejectedValue(new Error('User with this email already exists'));
 
-      const response = await request(app)
-        .post('/api/v1/auth/register')
-        .send(validCreateUserRequest);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: validCreateUserRequest
+      });
 
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('User with this email already exists');
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('User with this email already exists');
     });
   });
 
@@ -132,13 +139,16 @@ describe('Auth Integration Tests', () => {
     it('should login user successfully', async () => {
       mockUserService.loginUser.mockResolvedValue(mockAuthResponse);
 
-      const response = await request(app)
-        .post('/api/v1/auth/login')
-        .send(validLoginRequest);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: validLoginRequest
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({
         user: expect.objectContaining({
           id: 'user-123',
           email: 'test@example.com',
@@ -153,24 +163,30 @@ describe('Auth Integration Tests', () => {
     it('should return 401 for invalid credentials', async () => {
       mockUserService.loginUser.mockRejectedValue(new Error('Invalid email or password'));
 
-      const response = await request(app)
-        .post('/api/v1/auth/login')
-        .send(validLoginRequest);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: validLoginRequest
+      });
 
-      expect(response.status).toBe(401);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Invalid email or password');
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('Invalid email or password');
     });
   });
 
   describe('POST /api/v1/auth/logout', () => {
     it('should logout successfully', async () => {
-      const response = await request(app)
-        .post('/api/v1/auth/logout');
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/logout'
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Logged out successfully');
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('Logged out successfully');
     });
   });
 });

@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Request, Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { AuthController } from '../../src/controllers/authController';
 import { userService } from '../../src/services/userService';
-import { CreateUserRequest, LoginRequest, AuthResponse } from 'flixsync-shared-library';
+import { CreateUserRequest, LoginRequest, AuthResponse } from '@flixsync/flixsync-shared-library';
 
 vi.mock('../../src/services/userService');
 
 describe('AuthController', () => {
   let authController: AuthController;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
   let mockUserService: any;
 
   beforeEach(() => {
@@ -20,9 +20,9 @@ describe('AuthController', () => {
       body: {}
     };
 
-    mockResponse = {
+    mockReply = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      send: vi.fn().mockReturnThis()
     };
 
     vi.clearAllMocks();
@@ -70,11 +70,11 @@ describe('AuthController', () => {
       mockRequest.body = createUserRequest;
       mockUserService.createUser.mockResolvedValue(mockAuthResponse);
 
-      await authController.register(mockRequest as Request, mockResponse as Response);
+      await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockUserService.createUser).toHaveBeenCalledWith(createUserRequest);
-      expect(mockResponse.status).toHaveBeenCalledWith(201);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(201);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: mockAuthResponse
       });
@@ -90,10 +90,10 @@ describe('AuthController', () => {
       mockRequest.body = createUserRequest;
       mockUserService.createUser.mockRejectedValue(new Error('Email already exists'));
 
-      await authController.register(mockRequest as Request, mockResponse as Response);
+      await authController.register(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(400);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Email already exists'
       });
@@ -141,11 +141,11 @@ describe('AuthController', () => {
       mockRequest.body = loginRequest;
       mockUserService.loginUser.mockResolvedValue(mockAuthResponse);
 
-      await authController.login(mockRequest as Request, mockResponse as Response);
+      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockUserService.loginUser).toHaveBeenCalledWith(loginRequest);
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: mockAuthResponse
       });
@@ -160,10 +160,10 @@ describe('AuthController', () => {
       mockRequest.body = loginRequest;
       mockUserService.loginUser.mockRejectedValue(new Error('Invalid email or password'));
 
-      await authController.login(mockRequest as Request, mockResponse as Response);
+      await authController.login(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Invalid email or password'
       });
@@ -207,11 +207,11 @@ describe('AuthController', () => {
       mockRequest.body = { refreshToken };
       mockUserService.refreshToken.mockResolvedValue(mockAuthResponse);
 
-      await authController.refreshToken(mockRequest as Request, mockResponse as Response);
+      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockUserService.refreshToken).toHaveBeenCalledWith(refreshToken);
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: mockAuthResponse
       });
@@ -223,10 +223,10 @@ describe('AuthController', () => {
       mockRequest.body = { refreshToken };
       mockUserService.refreshToken.mockRejectedValue(new Error('Invalid refresh token'));
 
-      await authController.refreshToken(mockRequest as Request, mockResponse as Response);
+      await authController.refreshToken(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
         error: 'Invalid refresh token'
       });
@@ -235,10 +235,10 @@ describe('AuthController', () => {
 
   describe('logout', () => {
     it('should logout successfully', async () => {
-      await authController.logout(mockRequest as Request, mockResponse as Response);
+      await authController.logout(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(200);
+      expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         message: 'Logged out successfully'
       });

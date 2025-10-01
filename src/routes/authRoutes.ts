@@ -1,15 +1,40 @@
-import { Router } from 'express';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { authController } from '../controllers/authController';
-import { validateRequest, createUserSchema, loginSchema, refreshTokenSchema } from '../middleware/validation';
+import { createUserSchema, loginSchema, refreshTokenSchema } from '../middleware/validation';
 
-const router = Router();
+export const setupAuthRoutes = async (app: FastifyInstance): Promise<void> => {
+  // Register route
+  app.post('/register', {
+    schema: {
+      body: createUserSchema,
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return authController.register(request, reply);
+    }
+  });
 
-router.post('/register', validateRequest(createUserSchema), authController.register);
+  // Login route
+  app.post('/login', {
+    schema: {
+      body: loginSchema,
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return authController.login(request, reply);
+    }
+  });
 
-router.post('/login', validateRequest(loginSchema), authController.login);
+  // Refresh token route
+  app.post('/refresh', {
+    schema: {
+      body: refreshTokenSchema,
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return authController.refreshToken(request, reply);
+    }
+  });
 
-router.post('/refresh', validateRequest(refreshTokenSchema), authController.refreshToken);
-
-router.post('/logout', authController.logout);
-
-export { router as authRoutes };
+  // Logout route
+  app.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+    return authController.logout(request, reply);
+  });
+};

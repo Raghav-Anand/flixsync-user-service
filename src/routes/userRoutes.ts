@@ -1,16 +1,46 @@
-import { Router } from 'express';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { userController } from '../controllers/userController';
 import { authenticate } from '../middleware/auth';
-import { validateRequest, updateUserSchema } from '../middleware/validation';
+import { updateUserSchema } from '../middleware/validation';
+import { AuthenticatedUser } from '../types/fastify';
 
-const router = Router();
+interface AuthenticatedRequest extends FastifyRequest {
+  user: AuthenticatedUser;
+}
 
-router.get('/profile', authenticate, userController.getProfile);
+export const setupUserRoutes = async (app: FastifyInstance): Promise<void> => {
+  // Get user profile
+  app.get('/profile', {
+    preHandler: authenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return userController.getProfile(request as AuthenticatedRequest, reply);
+    }
+  });
 
-router.put('/profile', authenticate, validateRequest(updateUserSchema), userController.updateProfile);
+  // Update user profile
+  app.put('/profile', {
+    preHandler: authenticate,
+    schema: {
+      body: updateUserSchema,
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return userController.updateProfile(request as AuthenticatedRequest, reply);
+    }
+  });
 
-router.delete('/profile', authenticate, userController.deleteProfile);
+  // Delete user profile
+  app.delete('/profile', {
+    preHandler: authenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return userController.deleteProfile(request as AuthenticatedRequest, reply);
+    }
+  });
 
-router.get('/:userId', authenticate, userController.getUserById);
-
-export { router as userRoutes };
+  // Get user by ID
+  app.get('/:userId', {
+    preHandler: authenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      return userController.getUserById(request, reply);
+    }
+  });
+};

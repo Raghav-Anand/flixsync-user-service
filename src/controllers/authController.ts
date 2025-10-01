@@ -1,61 +1,61 @@
-import { Request, Response } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { userService } from '../services/userService';
-import { CreateUserRequest, LoginRequest } from 'flixsync-shared-library';
+import { CreateUserRequest, LoginRequest } from '@flixsync/flixsync-shared-library';
 
 export class AuthController {
-  public async register(req: Request, res: Response): Promise<void> {
+  public async register(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      const userData: CreateUserRequest = req.body;
+      const userData: CreateUserRequest = request.body as CreateUserRequest;
       const authResponse = await userService.createUser(userData);
 
-      res.status(201).json({
+      return reply.status(201).send({
         success: true,
         data: authResponse,
       });
     } catch (error: any) {
-      res.status(400).json({
+      return reply.status(400).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async login(req: Request, res: Response): Promise<void> {
+  public async login(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      const loginData: LoginRequest = req.body;
+      const loginData: LoginRequest = request.body as LoginRequest;
       const authResponse = await userService.loginUser(loginData);
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         data: authResponse,
       });
     } catch (error: any) {
-      res.status(401).json({
+      return reply.status(401).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async refreshToken(req: Request, res: Response): Promise<void> {
+  public async refreshToken(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      const { refreshToken } = request.body as { refreshToken: string };
       const authResponse = await userService.refreshToken(refreshToken);
 
-      res.status(200).json({
+      return reply.status(200).send({
         success: true,
         data: authResponse,
       });
     } catch (error: any) {
-      res.status(401).json({
+      return reply.status(401).send({
         success: false,
         error: error.message,
       });
     }
   }
 
-  public async logout(req: Request, res: Response): Promise<void> {
-    res.status(200).json({
+  public async logout(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    return reply.status(200).send({
       success: true,
       message: 'Logged out successfully',
     });

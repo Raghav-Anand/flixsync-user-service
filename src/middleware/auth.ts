@@ -1,26 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
-
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    username: string;
-  };
-}
+import { AuthenticatedUser } from '../types/fastify';
 
 export const authenticate = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+  request: FastifyRequest,
+  reply: FastifyReply
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Access token required' });
-      return;
+      return reply.status(401).send({ error: 'Access token required' });
     }
 
     const token = authHeader.substring(7);
@@ -28,32 +19,27 @@ export const authenticate = async (
 
     const user = await userService.getUserById(userId);
     if (!user) {
-      res.status(401).json({ error: 'User not found' });
-      return;
+      return reply.status(401).send({ error: 'User not found' });
     }
 
-    req.user = {
+    request.user = {
       id: user.id,
       email: user.email,
       username: user.username,
     };
-
-    next();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    return reply.status(401).send({ error: 'Invalid or expired token' });
   }
 };
 
 export const optionalAuth = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+  request: FastifyRequest,
+  reply: FastifyReply
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      next();
       return;
     }
 
@@ -62,15 +48,13 @@ export const optionalAuth = async (
 
     const user = await userService.getUserById(userId);
     if (user) {
-      req.user = {
+      request.user = {
         id: user.id,
         email: user.email,
         username: user.username,
       };
     }
-
-    next();
   } catch (error) {
-    next();
+    // Continue without authentication
   }
 };

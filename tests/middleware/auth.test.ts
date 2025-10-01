@@ -1,17 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Response, NextFunction } from 'express';
-import { authenticate, optionalAuth, AuthenticatedRequest } from '../../src/middleware/auth';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { authenticate, optionalAuth } from '../../src/middleware/auth';
 import { authService } from '../../src/services/authService';
 import { userService } from '../../src/services/userService';
-import { User } from 'flixsync-shared-library';
+import { User } from '@flixsync/flixsync-shared-library';
 
 vi.mock('../../src/services/authService');
 vi.mock('../../src/services/userService');
 
 describe('Auth Middleware', () => {
-  let mockRequest: Partial<AuthenticatedRequest>;
-  let mockResponse: Partial<Response>;
-  let mockNext: NextFunction;
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
   let mockAuthService: any;
   let mockUserService: any;
 
@@ -20,12 +19,11 @@ describe('Auth Middleware', () => {
       headers: {}
     };
 
-    mockResponse = {
+    mockReply = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      send: vi.fn().mockReturnThis()
     };
 
-    mockNext = vi.fn();
     mockAuthService = authService as any;
     mockUserService = userService as any;
 
@@ -69,11 +67,7 @@ describe('Auth Middleware', () => {
       mockAuthService.verifyAccessToken.mockReturnValue({ userId: 'user-123' });
       mockUserService.getUserById.mockResolvedValue(mockUser);
 
-      await authenticate(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await authenticate(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockAuthService.verifyAccessToken).toHaveBeenCalledWith('valid-token');
       expect(mockUserService.getUserById).toHaveBeenCalledWith('user-123');
@@ -82,23 +76,18 @@ describe('Auth Middleware', () => {
         email: 'test@example.com',
         username: 'testuser'
       });
-      expect(mockNext).toHaveBeenCalled();
+      expect(mockReply.status).not.toHaveBeenCalled();
     });
 
     it('should return 401 if no authorization header', async () => {
       mockRequest.headers = {};
 
-      await authenticate(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await authenticate(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Access token required'
       });
-      expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should return 401 if authorization header does not start with Bearer', async () => {
@@ -106,17 +95,12 @@ describe('Auth Middleware', () => {
         authorization: 'Basic invalid-auth'
       };
 
-      await authenticate(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await authenticate(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Access token required'
       });
-      expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should return 401 if token is invalid', async () => {
@@ -128,17 +112,12 @@ describe('Auth Middleware', () => {
         throw new Error('Invalid token');
       });
 
-      await authenticate(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await authenticate(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         error: 'Invalid or expired token'
       });
-      expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should return 401 if user not found', async () => {
@@ -149,17 +128,12 @@ describe('Auth Middleware', () => {
       mockAuthService.verifyAccessToken.mockReturnValue({ userId: 'user-123' });
       mockUserService.getUserById.mockResolvedValue(null);
 
-      await authenticate(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await authenticate(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.send).toHaveBeenCalledWith({
         error: 'User not found'
       });
-      expect(mockNext).not.toHaveBeenCalled();
     });
   });
 
@@ -200,11 +174,7 @@ describe('Auth Middleware', () => {
       mockAuthService.verifyAccessToken.mockReturnValue({ userId: 'user-123' });
       mockUserService.getUserById.mockResolvedValue(mockUser);
 
-      await optionalAuth(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await optionalAuth(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockAuthService.verifyAccessToken).toHaveBeenCalledWith('valid-token');
       expect(mockUserService.getUserById).toHaveBeenCalledWith('user-123');
@@ -213,21 +183,15 @@ describe('Auth Middleware', () => {
         email: 'test@example.com',
         username: 'testuser'
       });
-      expect(mockNext).toHaveBeenCalled();
     });
 
     it('should continue without user if no authorization header', async () => {
       mockRequest.headers = {};
 
-      await optionalAuth(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await optionalAuth(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockRequest.user).toBeUndefined();
-      expect(mockNext).toHaveBeenCalled();
-      expect(mockResponse.status).not.toHaveBeenCalled();
+      expect(mockReply.status).not.toHaveBeenCalled();
     });
 
     it('should continue without user if authorization header does not start with Bearer', async () => {
@@ -235,15 +199,10 @@ describe('Auth Middleware', () => {
         authorization: 'Basic invalid-auth'
       };
 
-      await optionalAuth(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await optionalAuth(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockRequest.user).toBeUndefined();
-      expect(mockNext).toHaveBeenCalled();
-      expect(mockResponse.status).not.toHaveBeenCalled();
+      expect(mockReply.status).not.toHaveBeenCalled();
     });
 
     it('should continue without user if token is invalid', async () => {
@@ -255,15 +214,10 @@ describe('Auth Middleware', () => {
         throw new Error('Invalid token');
       });
 
-      await optionalAuth(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await optionalAuth(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockRequest.user).toBeUndefined();
-      expect(mockNext).toHaveBeenCalled();
-      expect(mockResponse.status).not.toHaveBeenCalled();
+      expect(mockReply.status).not.toHaveBeenCalled();
     });
 
     it('should continue without user if user not found but token is valid', async () => {
@@ -274,15 +228,10 @@ describe('Auth Middleware', () => {
       mockAuthService.verifyAccessToken.mockReturnValue({ userId: 'user-123' });
       mockUserService.getUserById.mockResolvedValue(null);
 
-      await optionalAuth(
-        mockRequest as AuthenticatedRequest,
-        mockResponse as Response,
-        mockNext
-      );
+      await optionalAuth(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
       expect(mockRequest.user).toBeUndefined();
-      expect(mockNext).toHaveBeenCalled();
-      expect(mockResponse.status).not.toHaveBeenCalled();
+      expect(mockReply.status).not.toHaveBeenCalled();
     });
   });
 });

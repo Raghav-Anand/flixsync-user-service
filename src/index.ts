@@ -1,19 +1,20 @@
 import { createApp } from './app';
 import { config } from './config';
-import { dbConnection } from './config/database';
+import { getDbConnection } from './config/database';
 
 const startServer = async (): Promise<void> => {
   try {
+    const dbConnection = getDbConnection();
     await dbConnection.initialize();
     console.log('Database connection established');
 
-    const app = createApp();
+    const app = await createApp();
 
-    app.listen(config.port, () => {
-      console.log(`User service running on port ${config.port}`);
-      console.log(`Environment: ${config.nodeEnv}`);
-      console.log(`Health check: http://localhost:${config.port}/api/v1/health`);
-    });
+    await app.listen({ port: config.port, host: '0.0.0.0' })
+
+    console.log(`User service running on port ${config.port}`);
+    console.log(`Environment: ${config.nodeEnv}`);
+    console.log(`Health check: http://localhost:${config.port}/api/v1/health`);
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

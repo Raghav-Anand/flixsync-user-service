@@ -1,4 +1,4 @@
-import { User, UserProfile, UserPreferences, StreamingSubscription } from 'flixsync-shared-library';
+import { User, UserProfile, UserPreferences, StreamingSubscription } from '@flixsync/flixsync-shared-library';
 
 export class UserModel implements User {
   public id: string;

@@ -1,18 +1,18 @@
 import { v4 as uuidv4 } from 'uuid';
 import { UserModel } from '../models/User';
 import { authService } from './authService';
-import { dbConnection } from '../config/database';
+import { getDbConnection } from '../config/database';
 import {
   User,
   CreateUserRequest,
   UpdateUserRequest,
   LoginRequest,
   AuthResponse
-} from 'flixsync-shared-library';
+} from '@flixsync/flixsync-shared-library';
 
 export class UserService {
   private get container() {
-    return dbConnection.getContainer();
+    return getDbConnection().getContainer();
   }
 
   public async createUser(userData: CreateUserRequest): Promise<AuthResponse> {
