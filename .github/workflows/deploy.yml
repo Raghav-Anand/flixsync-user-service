@@ -9,7 +9,7 @@ env:
   AZURE_FUNCTIONAPP_NAME: flixsync-user-service
   AZURE_RESOURCE_GROUP: flixsync
   AZURE_LOCATION: centralus
-  AZURE_STORAGE_ACCOUNT: flixsync-user-storage
+  AZURE_STORAGE_ACCOUNT: flixsyncuserstorage
   COSMOS_DATABASE_NAME: flixsync-user-database
   COSMOS_CONTAINER_NAME: users
   VNET_NAME: flixsync-vnet
