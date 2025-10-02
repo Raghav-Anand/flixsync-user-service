@@ -174,6 +174,10 @@ jobs:
 
     - name: Prepare deployment package
       run: |
+        # Debug: Check what's in build directory
+        echo "=== Contents of build directory ==="
+        ls -la build/
+
         # Create deployment directory
         mkdir -p deploy
 
@@ -183,6 +187,12 @@ jobs:
         cp build/package-lock.json deploy/
         cp build/host.json deploy/
         cp -r build/node_modules deploy/
+
+        # Debug: Check deployment package structure
+        echo "=== Deployment package structure ==="
+        ls -la deploy/
+        echo "=== Checking for package.json ==="
+        cat deploy/package.json | head -10
 
     - name: Deploy to Azure Functions
       run: |
