@@ -2,7 +2,7 @@
   "name": "flixsync-user-service",
   "version": "1.0.0",
   "description": "User service for FlixSync movie recommendation platform",
-  "main": "dist/{index.js,functions/*.js}",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "func start",
