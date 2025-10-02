@@ -128,19 +128,30 @@ jobs:
         FUNCTION_IPS=$(az functionapp show \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "possibleOutboundIpAddresses" -o tsv | tr ',' ',')
+          --query "possibleOutboundIpAddresses" -o tsv)
 
         # Get current Cosmos DB IP rules
         CURRENT_IPS=$(az cosmosdb show \
           --name ${{ env.COSMOS_ACCOUNT }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "ipRules[].ipAddressOrRange" -o tsv | tr '\n' ',' | sed 's/,$//')
+          --query "ipRules[].ipAddressOrRange" -o tsv)
 
-        # Merge and deduplicate IPs
-        ALL_IPS=$(echo "$CURRENT_IPS,$FUNCTION_IPS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+        # Merge IPs (deduplicating)
+        ALL_IPS=$(echo -e "$CURRENT_IPS\n$FUNCTION_IPS" | tr ',' '\n' | sort -u | grep -v '^$' | tr '\n' ',')
 
-        # Update Cosmos DB firewall with all IPs
-        echo "Updating Cosmos DB firewall with IP ranges: $ALL_IPS"
+        # Log the changes for visibility
+        echo "=== IP Update Summary ==="
+        echo "Service: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
+        echo "Current IPs in this deployment: $(echo $FUNCTION_IPS | tr ',' '\n' | wc -l) IPs"
+        echo "$FUNCTION_IPS" | tr ',' '\n' | sed 's/^/  - /'
+        echo ""
+        echo "Total IPs after merge: $(echo $ALL_IPS | tr ',' '\n' | grep -v '^$' | wc -l) IPs"
+        echo ""
+        echo "⚠️  Note: Old IPs from previous deployments remain for safety"
+        echo "    To audit/clean old IPs, check Cosmos DB firewall rules manually"
+        echo ""
+
+        # Update Cosmos DB firewall
         az cosmosdb update \
           --name ${{ env.COSMOS_ACCOUNT }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -153,6 +164,7 @@ jobs:
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --settings \
             NODE_ENV=production \
+            AzureWebJobsFeatureFlags=EnableWorkerIndexing \
             JWT_SECRET="${{ secrets.JWT_SECRET }}" \
             JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
             COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" \
