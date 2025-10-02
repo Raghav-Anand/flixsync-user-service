@@ -2,11 +2,9 @@
   "name": "flixsync-user-service",
   "version": "1.0.0",
   "description": "User service for FlixSync movie recommendation platform",
-  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "func start",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -16,14 +14,10 @@
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
     "@azure/functions": "^4.8.0",
-    "@fastify/cors": "^8.4.0",
-    "@fastify/helmet": "^11.1.1",
-    "@fastify/jwt": "^7.2.4",
     "@flixsync/flixsync-shared-library": "^1.0.0",
     "@types/uuid": "^10.0.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1",
-    "fastify": "^4.24.3",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^13.0.0"
   },
