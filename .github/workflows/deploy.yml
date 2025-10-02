@@ -54,6 +54,7 @@ jobs:
           dist/
           package*.json
           node_modules/
+          host.json
 
   deploy:
     runs-on: ubuntu-latest
@@ -164,12 +165,8 @@ jobs:
         # Create deployment directory
         mkdir -p deploy
 
-        # Copy necessary files
-        cp -r dist deploy/
-        cp -r node_modules deploy/
-        cp package.json deploy/
-        cp package-lock.json deploy/
-        cp host.json deploy/
+        # Copy built artifacts from build job
+        cp -r build/* deploy/
 
     - name: Deploy to Azure Functions
       run: |
