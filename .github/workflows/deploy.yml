@@ -177,8 +177,12 @@ jobs:
         # Create deployment directory
         mkdir -p deploy
 
-        # Copy built artifacts from build job
-        cp -r build/* deploy/
+        # Copy files from build artifacts - move dist contents to root
+        cp -r build/dist/* deploy/
+        cp build/package.json deploy/
+        cp build/package-lock.json deploy/
+        cp build/host.json deploy/
+        cp -r build/node_modules deploy/
 
     - name: Deploy to Azure Functions
       run: |
