@@ -10,11 +10,9 @@ env:
   AZURE_RESOURCE_GROUP: flixsync
   AZURE_LOCATION: centralus
   AZURE_STORAGE_ACCOUNT: flixsyncuserstorage
+  COSMOS_ACCOUNT: flixsync-cosmos
   COSMOS_DATABASE_NAME: flixsync-user-database
   COSMOS_CONTAINER_NAME: users
-  VNET_NAME: flixsync-vnet
-  SUBNET_NAME: flixsync-functions-subnet
-  NSG_NAME: flixsync-nsg
   NODE_VERSION: '22'
 
 jobs:
@@ -108,31 +106,6 @@ jobs:
           echo "Storage account ${{ env.AZURE_STORAGE_ACCOUNT }} already exists"
         fi
 
-        # Get subnet ID (assumes VNet and subnet already exist)
-        SUBNET_ID=$(az network vnet subnet show \
-          --name ${{ env.SUBNET_NAME }} \
-          --vnet-name ${{ env.VNET_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query id -o tsv 2>/dev/null || echo "")
-
-        # Add VNet rule to storage account if subnet exists and rule not already added
-        if [ ! -z "$SUBNET_ID" ]; then
-          EXISTING_RULES=$(az storage account network-rule list \
-            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query "virtualNetworkRules[?virtualNetworkResourceId=='$SUBNET_ID']" -o tsv)
-
-          if [ -z "$EXISTING_RULES" ]; then
-            echo "Adding VNet rule to storage account..."
-            az storage account network-rule add \
-              --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --subnet $SUBNET_ID
-          else
-            echo "VNet rule already exists for storage account"
-          fi
-        fi
-
         # Create Function App if it doesn't exist (Consumption plan auto-created)
         if ! az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} &>/dev/null; then
           echo "Creating function app ${{ env.AZURE_FUNCTIONAPP_NAME }}..."
@@ -149,20 +122,28 @@ jobs:
           echo "Function app ${{ env.AZURE_FUNCTIONAPP_NAME }} already exists"
         fi
 
-        # Get Function App outbound IPs and add to Cosmos DB firewall
+        # Get Function App outbound IPs and update Cosmos DB firewall
         echo "Securing Cosmos DB with Function App IP whitelist..."
         FUNCTION_IPS=$(az functionapp show \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "possibleOutboundIpAddresses" -o tsv | tr ',' '\n')
+          --query "possibleOutboundIpAddresses" -o tsv | tr ',' ',')
 
-        # Add each IP to Cosmos DB firewall
-        for IP in $FUNCTION_IPS; do
-          az cosmosdb update \
-            --name flixsync-cosmos \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --ip-range-filter $IP || true
-        done
+        # Get current Cosmos DB IP rules
+        CURRENT_IPS=$(az cosmosdb show \
+          --name ${{ env.COSMOS_ACCOUNT }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query "ipRules[].ipAddressOrRange" -o tsv | tr '\n' ',' | sed 's/,$//')
+
+        # Merge and deduplicate IPs
+        ALL_IPS=$(echo "$CURRENT_IPS,$FUNCTION_IPS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+
+        # Update Cosmos DB firewall with all IPs
+        echo "Updating Cosmos DB firewall with IP ranges: $ALL_IPS"
+        az cosmosdb update \
+          --name ${{ env.COSMOS_ACCOUNT }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --ip-range-filter "$ALL_IPS"
 
         # Configure app settings (always update to ensure latest values)
         echo "Configuring app settings..."
