@@ -177,8 +177,8 @@ jobs:
         # Create deployment directory
         mkdir -p deploy
 
-        # Copy files from build artifacts - move dist contents to root
-        cp -r build/dist/* deploy/
+        # Copy files preserving dist/ folder structure per Azure Functions docs
+        cp -r build/dist deploy/
         cp build/package.json deploy/
         cp build/package-lock.json deploy/
         cp build/host.json deploy/
