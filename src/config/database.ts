@@ -1,4 +1,5 @@
 import { CosmosClient, Database, Container } from '@azure/cosmos';
+import { DefaultAzureCredential } from '@azure/identity';
 
 class DatabaseConnection {
   private static instance: DatabaseConnection | null = null;
@@ -8,10 +9,25 @@ class DatabaseConnection {
   private isInitialized = false;
 
   private constructor() {
-    this.client = new CosmosClient({
-      endpoint: process.env.COSMOS_ENDPOINT!,
-      key: process.env.COSMOS_KEY!,
-    });
+    // Use Managed Identity authentication in production, key-based for local development
+    const endpoint = process.env.COSMOS_ENDPOINT!;
+    const cosmosKey = process.env.COSMOS_KEY;
+
+    if (cosmosKey) {
+      // Local development with key-based auth
+      this.client = new CosmosClient({
+        endpoint,
+        key: cosmosKey,
+      });
+      console.log('Using key-based authentication for Cosmos DB');
+    } else {
+      // Production with Managed Identity
+      this.client = new CosmosClient({
+        endpoint,
+        aadCredentials: new DefaultAzureCredential(),
+      });
+      console.log('Using Managed Identity authentication for Cosmos DB');
+    }
   }
 
   static getInstance(): DatabaseConnection {

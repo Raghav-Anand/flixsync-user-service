@@ -123,41 +123,31 @@ jobs:
           echo "Function app ${{ env.AZURE_FUNCTIONAPP_NAME }} already exists"
         fi
 
-        # Get Function App outbound IPs and update Cosmos DB firewall
-        echo "Securing Cosmos DB with Function App IP whitelist..."
-        FUNCTION_IPS=$(az functionapp show \
+        # Enable Managed Identity for Function App
+        echo "Enabling managed identity for Function App..."
+        az functionapp identity assign \
+          --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+
+        # Get the managed identity principal ID
+        PRINCIPAL_ID=$(az functionapp identity show \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "possibleOutboundIpAddresses" -o tsv)
+          --query principalId -o tsv)
 
-        # Get current Cosmos DB IP rules
-        CURRENT_IPS=$(az cosmosdb show \
-          --name ${{ env.COSMOS_ACCOUNT }} \
+        echo "Function App Principal ID: $PRINCIPAL_ID"
+
+        # Assign Cosmos DB Built-in Data Contributor role to the managed identity
+        echo "Assigning Cosmos DB Data Contributor role to Function App..."
+        az cosmosdb sql role assignment create \
+          --account-name ${{ env.COSMOS_ACCOUNT }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query "ipRules[].ipAddressOrRange" -o tsv)
+          --role-definition-name "Cosmos DB Built-in Data Contributor" \
+          --principal-id $PRINCIPAL_ID \
+          --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/${{ env.AZURE_RESOURCE_GROUP }}/providers/Microsoft.DocumentDB/databaseAccounts/${{ env.COSMOS_ACCOUNT }}" \
+          || echo "Role assignment already exists or failed - continuing..."
 
-        # Merge IPs (deduplicating)
-        ALL_IPS=$(echo -e "$CURRENT_IPS\n$FUNCTION_IPS" | tr ',' '\n' | sort -u | grep -v '^$' | tr '\n' ',')
-
-        # Log the changes for visibility
-        echo "=== IP Update Summary ==="
-        echo "Service: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
-        echo "Current IPs in this deployment: $(echo $FUNCTION_IPS | tr ',' '\n' | wc -l) IPs"
-        echo "$FUNCTION_IPS" | tr ',' '\n' | sed 's/^/  - /'
-        echo ""
-        echo "Total IPs after merge: $(echo $ALL_IPS | tr ',' '\n' | grep -v '^$' | wc -l) IPs"
-        echo ""
-        echo "⚠️  Note: Old IPs from previous deployments remain for safety"
-        echo "    To audit/clean old IPs, check Cosmos DB firewall rules manually"
-        echo ""
-
-        # Update Cosmos DB firewall
-        az cosmosdb update \
-          --name ${{ env.COSMOS_ACCOUNT }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --ip-range-filter "$ALL_IPS"
-
-        # Configure app settings (always update to ensure latest values)
+        # Configure app settings (without COSMOS_KEY - using managed identity instead)
         echo "Configuring app settings..."
         az functionapp config appsettings set \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
@@ -168,7 +158,6 @@ jobs:
             JWT_SECRET="${{ secrets.JWT_SECRET }}" \
             JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
             COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" \
-            COSMOS_KEY="${{ secrets.COSMOS_KEY }}" \
             COSMOS_DATABASE_NAME="${{ env.COSMOS_DATABASE_NAME }}" \
             COSMOS_CONTAINER_NAME="${{ env.COSMOS_CONTAINER_NAME }}"
 
