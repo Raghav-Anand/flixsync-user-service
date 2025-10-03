@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { userService } from '../services/userService';
 import { authenticateRequest } from '../utils/azureAuth';
 import { getDbConnection } from '../config/database';
+import { UserModel } from '../models/User';
 
 let initialized = false;
 
@@ -33,7 +34,7 @@ export async function getProfile(request: HttpRequest, context: InvocationContex
       status: 200,
       jsonBody: {
         success: true,
-        data: profile,
+        data: new UserModel(profile).toPublicJSON(),
       },
     };
   } catch (error: any) {

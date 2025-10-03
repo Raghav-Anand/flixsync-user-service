@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { userService } from '../services/userService';
 import { authenticateRequest } from '../utils/azureAuth';
 import { getDbConnection } from '../config/database';
+import { UserModel } from '../models/User';
 
 let initialized = false;
 
@@ -40,7 +41,7 @@ export async function getUserById(request: HttpRequest, context: InvocationConte
       };
     }
 
-    const { passwordHash, email, ...publicUser } = user;
+    const { email, ...publicUser } = new UserModel(user).toPublicJSON();
 
     return {
       status: 200,
