@@ -78,7 +78,7 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
 
     - name: Azure Login
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -147,43 +147,54 @@ jobs:
           --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/${{ env.AZURE_RESOURCE_GROUP }}/providers/Microsoft.DocumentDB/databaseAccounts/${{ env.COSMOS_ACCOUNT }}" \
           || echo "Role assignment already exists or failed - continuing..."
 
-        # Configure app settings (without COSMOS_KEY - using managed identity instead)
-        echo "Configuring app settings..."
-        az functionapp config appsettings set \
-          --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --settings \
-            NODE_ENV=production \
-            AzureWebJobsFeatureFlags=EnableWorkerIndexing \
-            JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
-            COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" \
-            COSMOS_DATABASE_NAME="${{ env.COSMOS_DATABASE_NAME }}" \
-            COSMOS_CONTAINER_NAME="${{ env.COSMOS_CONTAINER_NAME }}"
-
-    - name: Prepare deployment package
-      run: |
-        echo "=== Contents of build directory ==="
-        ls -la build/
-
-        # Create deployment directory with proper structure
-        mkdir -p deploy
-
-        # Copy all necessary files to deploy directory
-        cp -r build/dist deploy/
-        cp -r build/node_modules deploy/
-        cp build/package.json deploy/
-        cp build/package-lock.json deploy/
-        cp build/host.json deploy/
-
-        echo "=== Deployment package structure ==="
-        ls -la deploy/
+    - name: Configure Function App Settings
+      uses: azure/appservice-settings@v1
+      with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        app-settings-json: |
+          [
+            {
+              "name": "NODE_ENV",
+              "value": "production",
+              "slotSetting": false
+            },
+            {
+              "name": "AzureWebJobsFeatureFlags",
+              "value": "EnableWorkerIndexing",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_SECRET",
+              "value": "${{ secrets.JWT_SECRET }}",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_REFRESH_SECRET",
+              "value": "${{ secrets.JWT_REFRESH_SECRET }}",
+              "slotSetting": false
+            },
+            {
+              "name": "COSMOS_ENDPOINT",
+              "value": "${{ secrets.COSMOS_ENDPOINT }}",
+              "slotSetting": false
+            },
+            {
+              "name": "COSMOS_DATABASE_NAME",
+              "value": "${{ env.COSMOS_DATABASE_NAME }}",
+              "slotSetting": false
+            },
+            {
+              "name": "COSMOS_CONTAINER_NAME",
+              "value": "${{ env.COSMOS_CONTAINER_NAME }}",
+              "slotSetting": false
+            }
+          ]
 
     - name: 'Deploy to Azure Functions'
       uses: Azure/functions-action@v1
       with:
         app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: deploy
+        package: build
         respect-funcignore: true
 
     - name: Azure logout

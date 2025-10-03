@@ -95,7 +95,7 @@ export class UserService {
     });
 
     const { resource } = await this.container
-      .item(userId, userId)
+      .item(userId, existingUser.id)
       .replace(updatedUser.toJSON());
 
     if (!resource) {
@@ -111,7 +111,7 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    await this.container.item(userId, userId).delete();
+    await this.container.item(userId, existingUser.id).delete();
   }
 
   public async refreshToken(refreshToken: string): Promise<AuthResponse> {
